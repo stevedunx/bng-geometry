@@ -1,0 +1,133 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>GeoJSON Generator</title>
+<!-- Download OpenSpace API using your key -->
+<script type="text/javascript" src="https://openspace.ordnancesurvey.co.uk/osmapapi/openspace.js?key=2C30C1B6DE940A3AE0530B6CA40A5606"></script>
+<script type= "text/javascript" src="https://openspace.ordnancesurvey.co.uk/osmapapi/script/mapbuilder/basicmap.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function() {
+  //initiate the map
+  var options = {
+    resolutions: [2500, 1000, 500, 200, 100, 50, 25, 10, 5, 4, 2.5, 2, 1],
+    controls: [
+        new OpenLayers.Control.PanZoom()
+      ]};
+  osMap = new OpenSpace.Map('map', options);
+
+  gjf = new OpenLayers.Format.GeoJSON();
+  //configure map options (basicmap.js)
+  setglobaloptions();
+  //set the center of the map and the zoom level
+  osMap.setCenter(new OpenSpace.MapPoint(414350,297010),1);
+
+  // add Layer
+  vlayer1 = new OpenLayers.Layer.Vector( "Layer 1" );
+  control1 = new OpenLayers.Control.EditingToolbar(
+                vlayer1, {div: document.getElementById("toolbar-1")}
+            );
+  osMap.addControl(control1);
+  osMap.addControl(new OpenLayers.Control.LayerSwitcher());
+  osMap.addLayer(vlayer1);
+
+  // add triggers
+  $('button#getFeatures-1').click(function(){
+    var gj = gjf.write(vlayer1.features);
+    $('textarea#geojson-1').val(gj);
+  });
+  $('button#loadFeatures-1').click(function(){
+    vlayer1.removeAllFeatures();
+    var gj = $('textarea#geojson-1').val();
+    var features = gjf.read(gj);
+    vlayer1.addFeatures(features);
+  });
+  $('button#zoom-1').click(function() {
+    osMap.zoomToExtent(vlayer1.getDataExtent());
+  });
+  $('textarea#geojson-1').bind('input propertychange', function() {
+    loadFeaturesFor1();
+  });
+
+  // add Layer
+  vlayer2 = new OpenLayers.Layer.Vector( "Layer 2" );
+  control2 = new OpenLayers.Control.EditingToolbar(
+                vlayer2, {div: document.getElementById("toolbar-2")}
+            );
+  osMap.addControl(control2);
+  osMap.addLayer(vlayer2);
+
+  // add triggers
+  $('button#getFeatures-2').click(function(){
+    var gj = gjf.write(vlayer2.features);
+    $('textarea#geojson-2').val(gj);
+  });
+  $('button#loadFeatures-2').click(function(){
+    loadFeaturesFor2();
+  });
+  $('button#zoom-2').click(function() {
+    osMap.zoomToExtent(vlayer2.getDataExtent());
+  });
+  $('textarea#geojson-2').bind('input propertychange', function() {
+    loadFeaturesFor2();
+  });
+});
+
+function loadFeaturesFor1(){
+  vlayer1.removeAllFeatures();
+  var gj = $('textarea#geojson-1').val();
+  var features = gjf.read(gj);
+  vlayer1.addFeatures(features);
+}
+
+function loadFeaturesFor2(){
+  vlayer2.removeAllFeatures();
+  var gj = $('textarea#geojson-2').val();
+  var features = gjf.read(gj);
+  vlayer2.addFeatures(features);
+}
+
+
+// stylise page
+$(function() {
+  $( "#tabs" ).tabs();
+});
+</script>
+</head>
+<body>
+  <div id="map" style="border: 1px solid black; width:100%; height:440px;"></div>
+  <div id="tabs">
+  <ul>
+    <li><a href="#document">Document</a></li>
+    <li><a href="#layer-1">Layer 1</a></li>
+    <li><a href="#layer-2">Layer 2</a></li>
+  </ul>
+  <div id="document">
+  </div>
+  <div id="layer-1">
+    <div id="toolbar-1" class="olControlEditingToolbar"></div>
+    <p>
+        <button id="getFeatures-1">GetFeatures</button>
+        <button id="loadFeatures-1">LoadFeatures</button>
+        <button id="zoom-1">Zoom</button>
+    </p>
+    <p>
+        <textarea id="geojson-1" style="width:100%"></textarea>
+    </p>
+  </div>
+  <div id="layer-2">
+    <div id="toolbar-2" class="olControlEditingToolbar"></div>
+    <p>
+        <button id="getFeatures-2">GetFeatures</button>
+        <button id="loadFeatures-2">LoadFeatures</button>
+        <button id="zoom-2">Zoom</button>
+    </p>
+    <p>
+        <textarea id="geojson-2" style="width:100%"></textarea>
+    </p>
+  </div>
+</div>
+</body>
+</html>
