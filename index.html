@@ -29,7 +29,7 @@ $(document).ready(function() {
         // new ol.Control.PanZoom()
       ]};
 
-  const osMap = new ol.Map({
+  osMap = new ol.Map({
     target: 'map',
     layers: [
       new ol.layer.Tile({
@@ -103,13 +103,10 @@ $(document).ready(function() {
     $('textarea#geojson-1').val(gj);
   });
   $('button#loadFeatures-1').click(function(){
-    vlayer1.removeAllFeatures();
-    var gj = $('textarea#geojson-1').val();
-    var features = gjf.read(gj);
-    vlayer1.addFeatures(features);
+    loadFeaturesFor1();
   });
   $('button#zoom-1').click(function() {
-    osMap.zoomToExtent(vlayer1.getDataExtent());
+    osMap.zoomToExtent(source.getExtent());
   });
   $('textarea#geojson-1').bind('input propertychange', function() {
     loadFeaturesFor1();
@@ -121,10 +118,12 @@ $(document).ready(function() {
   // add triggers
 
 function loadFeaturesFor1(){
-  vlayer1.removeAllFeatures();
+  source.clear();
   var gj = $('textarea#geojson-1').val();
-  var features = gjf.read(gj);
-  vlayer1.addFeatures(features);
+  var features = gjf.readFeatures(gj,
+  {dataProjection: 'EPSG:27700',
+  featureProjection: 'EPSG:3857'});
+  source.addFeatures(features);
 }
 
 // stylise page
