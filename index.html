@@ -1,41 +1,105 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-<title>GeoJSON Generator</title>
+<title>GeoJSON Generator for British National Grid</title>
 <!-- Download OpenSpace API using your key -->
-<script type="text/javascript" src="https://openspace.ordnancesurvey.co.uk/osmapapi/openspace.js?key=2C30C1B6DE940A3AE0530B6CA40A5606"></script>
-<script type= "text/javascript" src="https://openspace.ordnancesurvey.co.uk/osmapapi/script/mapbuilder/basicmap.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
 <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.9.0/build/ol.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.7.0/proj4.js"></script>
+
 <script type="text/javascript">
+
+let osMap;
+let vlayer1;
+
 $(document).ready(function() {
+
+  // Setup the EPSG:27700 (British National Grid) projection.
+  proj4.defs("EPSG:27700", "+proj=tmerc +lat_0=49 +lon_0=-2 +k=0.9996012717 +x_0=400000 +y_0=-100000 +ellps=airy +towgs84=446.448,-125.157,542.06,0.15,0.247,0.842,-20.489 +units=m +no_defs");
+  ol.proj.proj4.register(proj4);
+
   //initiate the map
   var options = {
     resolutions: [2500, 1000, 500, 200, 100, 50, 25, 10, 5, 4, 2.5, 2, 1],
     controls: [
-        new OpenLayers.Control.PanZoom()
+        // new ol.Control.PanZoom()
       ]};
-  osMap = new OpenSpace.Map('map', options);
 
-  gjf = new OpenLayers.Format.GeoJSON();
-  //configure map options (basicmap.js)
-  setglobaloptions();
+  const osMap = new ol.Map({
+    target: 'map',
+    layers: [
+      new ol.layer.Tile({
+        source: new ol.source.OSM()
+      })
+    ],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([-3, 52]),
+      zoom: 6
+    }),
+    options: options
+  });
+
+  gjf = new ol.format.GeoJSON();
   //set the center of the map and the zoom level
-  osMap.setCenter(new OpenSpace.MapPoint(414350,297010),1);
+  // osMap.setCenter(new ol.MapPoint(414350,297010),1);
 
   // add Layer
-  vlayer1 = new OpenLayers.Layer.Vector( "Layer 1" );
-  control1 = new OpenLayers.Control.EditingToolbar(
-                vlayer1, {div: document.getElementById("toolbar-1")}
-            );
-  osMap.addControl(control1);
-  osMap.addControl(new OpenLayers.Control.LayerSwitcher());
+  source = new ol.source.Vector();
+
+  const vlayer1 = new ol.layer.Vector({
+    source: source,
+    style: new ol.style.Style({
+      fill: new ol.style.Fill({
+        color: 'rgba(255, 255, 255, 0.2)',
+      }),
+      stroke: new ol.style.Stroke({
+        color: '#ffcc33',
+        width: 2,
+      }),
+      image: new ol.style.Circle({
+        radius: 7,
+        fill: new ol.style.Fill({
+          color: '#ffcc33',
+        }),
+      }),
+    }),
+  });
+
   osMap.addLayer(vlayer1);
+
+  let draw, snap; // global so we can remove them later
+  const typeSelect = document.getElementById('type');
+
+  function addInteractions() {
+    draw = new ol.interaction.Draw({
+      source: source,
+      type: typeSelect.value,
+    });
+    osMap.addInteraction(draw);
+    snap = new ol.interaction.Snap({source: source});
+    osMap.addInteraction(snap);
+  }
+
+  /**
+   * Handle change event.
+   */
+  typeSelect.onchange = function () {
+    osMap.removeInteraction(draw);
+    osMap.removeInteraction(snap);
+    addInteractions();
+  };
+
+  addInteractions();
 
   // add triggers
   $('button#getFeatures-1').click(function(){
-    var gj = gjf.write(vlayer1.features);
+    var gj = gjf.writeFeatures(source.getFeatures(),
+    {dataProjection: 'EPSG:27700',
+    featureProjection: 'EPSG:3857'});
     $('textarea#geojson-1').val(gj);
   });
   $('button#loadFeatures-1').click(function(){
@@ -51,29 +115,10 @@ $(document).ready(function() {
     loadFeaturesFor1();
   });
 
-  // add Layer
-  vlayer2 = new OpenLayers.Layer.Vector( "Layer 2" );
-  control2 = new OpenLayers.Control.EditingToolbar(
-                vlayer2, {div: document.getElementById("toolbar-2")}
-            );
-  osMap.addControl(control2);
-  osMap.addLayer(vlayer2);
+});
+
 
   // add triggers
-  $('button#getFeatures-2').click(function(){
-    var gj = gjf.write(vlayer2.features);
-    $('textarea#geojson-2').val(gj);
-  });
-  $('button#loadFeatures-2').click(function(){
-    loadFeaturesFor2();
-  });
-  $('button#zoom-2').click(function() {
-    osMap.zoomToExtent(vlayer2.getDataExtent());
-  });
-  $('textarea#geojson-2').bind('input propertychange', function() {
-    loadFeaturesFor2();
-  });
-});
 
 function loadFeaturesFor1(){
   vlayer1.removeAllFeatures();
@@ -81,14 +126,6 @@ function loadFeaturesFor1(){
   var features = gjf.read(gj);
   vlayer1.addFeatures(features);
 }
-
-function loadFeaturesFor2(){
-  vlayer2.removeAllFeatures();
-  var gj = $('textarea#geojson-2').val();
-  var features = gjf.read(gj);
-  vlayer2.addFeatures(features);
-}
-
 
 // stylise page
 $(function() {
@@ -100,32 +137,25 @@ $(function() {
   <div id="map" style="border: 1px solid black; width:100%; height:440px;"></div>
   <div id="tabs">
   <ul>
-    <li><a href="#document">Document</a></li>
     <li><a href="#layer-1">Layer 1</a></li>
-    <li><a href="#layer-2">Layer 2</a></li>
   </ul>
-  <div id="document">
-  </div>
   <div id="layer-1">
     <div id="toolbar-1" class="olControlEditingToolbar"></div>
     <p>
         <button id="getFeatures-1">GetFeatures</button>
         <button id="loadFeatures-1">LoadFeatures</button>
         <button id="zoom-1">Zoom</button>
+
+        <label for="type">Geometry type &nbsp;</label>
+        <select id="type">
+          <option value="Point">Point</option>
+          <option value="LineString">LineString</option>
+          <option value="Polygon">Polygon</option>
+          <option value="Circle">Circle</option>
+        </select>
     </p>
     <p>
         <textarea id="geojson-1" style="width:100%"></textarea>
-    </p>
-  </div>
-  <div id="layer-2">
-    <div id="toolbar-2" class="olControlEditingToolbar"></div>
-    <p>
-        <button id="getFeatures-2">GetFeatures</button>
-        <button id="loadFeatures-2">LoadFeatures</button>
-        <button id="zoom-2">Zoom</button>
-    </p>
-    <p>
-        <textarea id="geojson-2" style="width:100%"></textarea>
     </p>
   </div>
 </div>
